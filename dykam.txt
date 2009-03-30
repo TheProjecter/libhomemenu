@@ -1,0 +1,17 @@
+typedef void* Function;
+typedef struct LinkedFunction {
+	LinkedFunction *next;
+	Function callBack;
+};
+
+void callFunctions(LinkedFunction* linkedFunction)
+{
+	while(linkedFunction->next != NULL)
+	{
+		if(linkedFunction->callBack != NULL)
+		{
+			void (*linkedFunction->callBack)(); 
+		}
+		linkedFunction = linkedFunction->next;
+	}
+}
