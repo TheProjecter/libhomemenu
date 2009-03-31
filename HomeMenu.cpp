@@ -220,6 +220,11 @@ HomeMenu::HomeMenu(int width, int height, void* framebuffer0, void* framebuffer1
 	top.x = top.y = top.r = top.g = top.b = top.a = 0xFF;
 	top.t = 0;	top.s = 1;	top.visible = true;
 
+	top_hover.texture = &tex_top_hover;
+	top_hover.w = 728;	top_hover.h = 112;
+	top_hover.x = top_hover.y = top_hover.r = top_hover.g = top_hover.b = 0xFF;
+	top_hover.a = top_hover.t = 0;	top_hover.s = 1;	top_hover.visible = true;
+
 	top_active.texture = &tex_top_active;
 	top_active.w = 728;	top_active.h = 112;
 	top_active.x = top_active.y = top_active.r = top_active.g = top_active.b = 0xFF;
@@ -229,6 +234,11 @@ HomeMenu::HomeMenu(int width, int height, void* framebuffer0, void* framebuffer1
 	bottom.w = 728;	bottom.h = 112;
 	bottom.x = bottom.y = bottom.r = bottom.g = bottom.b = bottom.a = 0xFF;
 	bottom.t = 0;	bottom.s = 1;	bottom.visible = true;
+
+	bottom_hover.texture = &tex_bottom_hover;
+	bottom_hover.w = 728;	bottom_hover.h = 112;
+	bottom_hover.x = bottom_hover.y = bottom_hover.r = bottom_hover.g = bottom_hover.b = 0xFF;
+	bottom_hover.a = bottom_hover.t = 0;	bottom_hover.s = 1;	bottom_hover.visible = true;
 
 	bottom_active.texture = &tex_bottom_active;
 	bottom_active.w = 728;	bottom_active.h = 112;
@@ -300,10 +310,20 @@ HomeMenu::HomeMenu(int width, int height, void* framebuffer0, void* framebuffer1
 	button_wiiMenu.x = button_wiiMenu.y = button_wiiMenu.r = button_wiiMenu.g = button_wiiMenu.b = 0xFF;
 	button_wiiMenu.a = button_wiiMenu.t = 0;	button_wiiMenu.s = 1;	button_wiiMenu.visible = true;
 
+	button_wiiMenu_active.texture = &tex_button_wiiMenu_active;
+	button_wiiMenu_active.w = 240;	button_wiiMenu_active.h = 104;
+	button_wiiMenu_active.x = button_wiiMenu_active.y = button_wiiMenu_active.r = button_wiiMenu_active.g = button_wiiMenu_active.b = 0xFF;
+	button_wiiMenu_active.a = button_wiiMenu_active.t = 0;	button_wiiMenu_active.s = 1;	button_wiiMenu_active.visible = true;
+
 	button_loader.texture = &tex_button_loader;
 	button_loader.w = 240;	button_loader.h = 104;
 	button_loader.x = button_loader.y = button_loader.r = button_loader.g = button_loader.b = 0xFF;
 	button_loader.a = button_loader.t = 0;	button_loader.s = 1;	button_loader.visible = true;
+
+	button_loader_active.texture = &tex_button_loader_active;
+	button_loader_active.w = 240;	button_loader_active.h = 104;
+	button_loader_active.x = button_loader_active.y = button_loader_active.r = button_loader_active.g = button_loader_active.b = 0xFF;
+	button_loader_active.a = button_loader_active.t = 0;	button_loader_active.s = 1;	button_loader_active.visible = true;
 
 	button_close.texture = &tex_button_close;
 	button_close.w = 184;	button_close.h = 56;
@@ -337,30 +357,34 @@ HomeMenu::HomeMenu(int width, int height, void* framebuffer0, void* framebuffer1
 	background.t = 0;	background.s = 1;	background.visible = true;
 
 	// put pointers to images in a nice convenient array
-	images[0] = &background;
+	images[0]  = &background;
 	images[1]  = &top;
-	images[2]  = &top_active;
-	images[3]  = &bottom;
-	images[4]  = &bottom_active;
-	images[5]  = &text_top;
-	images[6]  = &text_bottom;
-	images[7]  = &wiimote;
-	images[8]  = &battery_info;
-	images[9]  = &battery[0];
-	images[10] = &battery[1];
-	images[11] = &battery[2];
-	images[12] = &battery[3];
-	images[13] = &p[0];
-	images[14] = &p[1];
-	images[15] = &p[2];
-	images[16] = &p[3];
-	images[17] = &button_wiiMenu;
-	images[18] = &button_loader;
-	images[19] = &button_close;
-	images[20] = &pointer[0];
-	images[21] = &pointer[1];
-	images[22] = &pointer[2];
-	images[23] = &pointer[3];
+	images[2]  = &top_hover;
+	images[3]  = &top_active;
+	images[4]  = &bottom;
+	images[5]  = &bottom_hover;
+	images[6]  = &bottom_active;
+	images[7]  = &text_top;
+	images[8]  = &text_bottom;
+	images[9]  = &wiimote;
+	images[10] = &battery_info;
+	images[11] = &battery[0];
+	images[12] = &battery[1];
+	images[13] = &battery[2];
+	images[14] = &battery[3];
+	images[15] = &p[0];
+	images[16] = &p[1];
+	images[17] = &p[2];
+	images[18] = &p[3];
+	images[19] = &button_wiiMenu;
+	images[20] = &button_wiiMenu_active;
+	images[21] = &button_loader;
+	images[22] = &button_loader_active;
+	images[23] = &button_close;
+	images[24] = &pointer[0];
+	images[25] = &pointer[1];
+	images[26] = &pointer[2];
+	images[27] = &pointer[3];
 	
 
 	// prepare our cursors
@@ -595,25 +619,25 @@ void HomeMenu::animate()
 	}
 	if (topH)
 	{
-		if (top_active.a != 255)
-			top_active.a = MIN(255, top_active.a + fadeRate*elapsed);
+		if (top_hover.a != 255)
+			top_hover.a = MIN(255, top_hover.a + fadeRate*elapsed);
 	} else {
-		if (top_active.a != 0)
-			top_active.a = MAX(0, top_active.a - fadeRate*elapsed);
+		if (top_hover.a != 0)
+			top_hover.a = MAX(0, top_hover.a - fadeRate*elapsed);
 	}
 	
 	if (bottomH)
 	{
-		if (bottom_active.a != 255)
+		if (bottom_hover.a != 255)
 		{
-			bottom_active.a = MIN(255, bottom_active.a + fadeRate*elapsed);
-			wiimote.y = bottom.y + 12 - bottom_active.a*0.1f;
+			bottom_hover.a = MIN(255, bottom_hover.a + fadeRate*elapsed);
+			wiimote.y = bottom.y + 12 - bottom_hover.a*0.1f;
 		}
 	} else {
-		if (bottom_active.a != 0)
+		if (bottom_hover.a != 0)
 		{
-			bottom_active.a = MAX(0, bottom_active.a - fadeRate*elapsed);
-			wiimote.y = bottom.y + 12 - bottom_active.a*0.1f;
+			bottom_hover.a = MAX(0, bottom_hover.a - fadeRate*elapsed);
+			wiimote.y = bottom.y + 12 - bottom_hover.a*0.1f;
 		}
 	}
 	
@@ -734,8 +758,12 @@ void HomeMenu::__slider(f32 offset)
 	bottom.y = screenHeight - offset + 7;
 
 	// all other sprites get their vertical positions off top or bottom.
+	top_hover.x = top.x;
+	top_hover.y = top.y;
 	top_active.x = top.x;
 	top_active.y = top.y;
+	bottom_hover.x = bottom.x;
+	bottom_hover.y = bottom.y;
 	bottom_active.x = bottom.x;
 	bottom_active.y = bottom.y;
 	text_top.x = text_top.w/2 + screenWidth*0.04f;
@@ -764,8 +792,12 @@ void HomeMenu::__slider(f32 offset)
 	p[3].y = battery[3].y;
 	button_wiiMenu.x = screenWidth*0.27f;
 	button_wiiMenu.y = screenHeight*0.48f;
+	button_wiiMenu_active.x = button_wiiMenu.x;
+	button_wiiMenu_active.y = button_wiiMenu.y;
 	button_loader.x = screenWidth*0.73f;
 	button_loader.y = screenHeight*0.48f;
+	button_loader_active.x = button_loader.x;
+	button_loader_active.y = button_loader.y;
 	button_close.x = screenWidth*0.96f - button_close.w/2;
 	button_close.y = top.y + 20;
 }

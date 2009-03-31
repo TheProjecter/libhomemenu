@@ -79,8 +79,10 @@ class HomeMenu
 	
 	// tex buffers ( don't forget __attribute__((aligned(32))) when giving them values)
 	static const unsigned char tex_top[];
+	static const unsigned char tex_top_hover[];
 	static const unsigned char tex_top_active[];
 	static const unsigned char tex_bottom[];
+	static const unsigned char tex_bottom_hover[];
 	static const unsigned char tex_bottom_active[];
 	static const unsigned char tex_text_top[];
 	static const unsigned char tex_text_bottom[];
@@ -92,7 +94,9 @@ class HomeMenu
 	static const unsigned char tex_battery3[];
 	static const unsigned char tex_battery4[];	// full
 	static const unsigned char tex_button_wiiMenu[];
+	static const unsigned char tex_button_wiiMenu_active[];
 	static const unsigned char tex_button_loader[];
+	static const unsigned char tex_button_loader_active[];
 	static const unsigned char tex_button_close[];
 	static const unsigned char tex_p1_point[];
 	static const unsigned char tex_p2_point[];
@@ -107,13 +111,13 @@ class HomeMenu
 	// A pointer to the first (and only allowed) HomeMenu instance
 	static HomeMenu* theOmegaMenu;
 	
-	image top, top_active, bottom, bottom_active;
+	image top, top_hover, top_active, bottom, bottom_hover, bottom_active;
 	image text_top, text_bottom, wiimote, battery_info, battery[4];
 	image p[4];		// the "P" label beside the batter gauge
-	image button_wiiMenu, button_loader, button_close;
+	image button_wiiMenu, button_wiiMenu_active, button_loader, button_loader_active, button_close;
 	image pointer[4];
 	image background;
-	static const int imageCount = 24;
+	static const int imageCount = 28;
 	image* images[imageCount];		// conventient array of pointers to all images
 	cursor p1, p2, p3, p4;
 	cursor cursors[4];
