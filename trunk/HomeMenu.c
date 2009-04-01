@@ -6,7 +6,7 @@
 #include <wiiuse/wpad.h>
 #include "asndlib.h"
 
-#include "snd_tick.h"
+#include "HomeMenu_snd_tick.h"
 
 // set HomeMenu to uninitialized
 bool HomeMenu_initialized = false;
