@@ -3,11 +3,15 @@
 
 #include <gccore.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 #define SHORT_RUMBLE 0.047f
 #define RUMBLE_COOLDOWN 0.30f
 #define MENU_VOLUME 196
 
-struct image {
+typedef struct HomeMenu_image {
 	const void *texture;	// pointer to texture
 	f32 x;			// x-coord	(of texture center)
 	f32 y;			// y-coord	(of texture center)
@@ -20,120 +24,114 @@ struct image {
 	f32 t;			// rotation (theta)
 	f32 s;			// scale
 	bool visible;	// whether or not to draw
-};
+} HomeMenu_image;
 
-struct cursor {
-	image *pointer;
+typedef struct HomeMenu_cursor {
+	HomeMenu_image *pointer;
 	f32 rumbleTimer;
 	f32 cooldownTimer;
-};
+} HomeMenu_cursor;
 
-class HomeMenu
-{
-  public:
-	// Factory function used to create a HomeMenu (this prevents the creation of multiple menus)
-	static HomeMenu *CreateMenu(int screenWidth, int screenHeight, void* framebuffer0, void* framebuffer1, u8 framebufferIndex);
+bool HomeMenu_Init(int screenWidth, int screenHeight, void* framebuffer0, void* framebuffer1, u8 framebufferIndex);
+void HomeMenu_Destroy();
+bool HomeMenu_Show();
+void HomeMenu_Hide();
 
-	~HomeMenu();
-	bool ShowMenu();
-	static void HideMenu();
-	
-	// Callback Setters:
-	void SetBeforeShowMenu(void (*func)());
-	void SetAfterShowMenu(void (*func)());
-	void SetBeforeDraw(void (*func)());
-	void SetAfterDraw(void (*func)());
-	void SetBeforeHideMenu(void (*func)());
-	void SetAfterHideMenu(void (*func)());
-	
-	// Callbacks:
-	void (*BeforeShowMenu)();		// called just before starting menu-display animation
-	void (*AfterShowMenu)();		// called just after finishing menu-display animation
-	void (*BeforeDraw)();			// called at the very beginning of the menu loop
-	void (*AfterDraw)();			// called at the very end of the menu loop
-	void (*BeforeHideMenu)();		// called just before starting menu-hide animation
-	void (*AfterHideMenu)();		// called just after finishing menu-hide animaiton
-	
-	// timer variables
-	u32 last;
-	f32 elapsed;
-	
+// Callback Setters:
+void HomeMenu_SetBeforeShowMenu(void (*func)());
+void HomeMenu_SetAfterShowMenu(void (*func)());
+void HomeMenu_SetBeforeDraw(void (*func)());
+void HomeMenu_SetAfterDraw(void (*func)());
+void HomeMenu_SetBeforeHideMenu(void (*func)());
+void HomeMenu_SetAfterHideMenu(void (*func)());
 
-  private:
-	// private construction (use public factory function CreateMenu())
-  	HomeMenu(int width, int height, void* framebuffer0, void* framebuffer1, u8 framebufferIndex);
-	void resetCursors();
-	void updateWiimotes();
-	void slide(bool reverse);
-	void animate();
-	void draw();
-	void updateTimer();
-	void __drawImage(image *img);
-	void __setVisible(bool value);
-	void __slider(f32 offset);
-	
-	// frame buffer stuff:
-	void* fb[2];	// framebuffers
-	u8 fbi;			// frame buffer index
-	u8 rumbleIntensity;			// values ranges from 0-2, only rumble when on 1 or 2.  This lowers the perceived rumble intensity.
-	
-	// tex buffers ( don't forget __attribute__((aligned(32))) when giving them values)
-	static const unsigned char tex_top[];
-	static const unsigned char tex_top_hover[];
-	static const unsigned char tex_top_active[];
-	static const unsigned char tex_bottom[];
-	static const unsigned char tex_bottom_hover[];
-	static const unsigned char tex_bottom_active[];
-	static const unsigned char tex_text_top[];
-	static const unsigned char tex_text_bottom[];
-	static const unsigned char tex_wiimote[];
-	static const unsigned char tex_battery_info[];
-	static const unsigned char tex_battery0[];	// empty
-	static const unsigned char tex_battery1[];
-	static const unsigned char tex_battery2[];	// half
-	static const unsigned char tex_battery3[];
-	static const unsigned char tex_battery4[];	// full
-	static const unsigned char tex_button_wiiMenu[];
-	static const unsigned char tex_button_wiiMenu_active[];
-	static const unsigned char tex_button_loader[];
-	static const unsigned char tex_button_loader_active[];
-	static const unsigned char tex_button_close[];
-	static const unsigned char tex_p1_point[];
-	static const unsigned char tex_p2_point[];
-	static const unsigned char tex_p3_point[];
-	static const unsigned char tex_p4_point[];
-	static const unsigned char tex_p1[];
-	static const unsigned char tex_p2[];
-	static const unsigned char tex_p3[];
-	static const unsigned char tex_p4[];
-	void *tex_bg;		// buffer for texture made from background
-	
-	// A pointer to the first (and only allowed) HomeMenu instance
-	static HomeMenu* theOmegaMenu;
-	
-	image top, top_hover, top_active, bottom, bottom_hover, bottom_active;
-	image text_top, text_bottom, wiimote, battery_info, battery[4];
-	image p[4];		// the "P" label beside the batter gauge
-	image button_wiiMenu, button_wiiMenu_active, button_loader, button_loader_active, button_close;
-	image pointer[4];
-	image background;
-	static const int imageCount = 28;
-	image* images[imageCount];		// conventient array of pointers to all images
-	cursor p1, p2, p3, p4;
-	cursor cursors[4];
+// Callbacks:
+void (*HomeMenu_BeforeShowMenu)();		// called just before starting menu-display animation
+void (*HomeMenu_AfterShowMenu)();		// called just after finishing menu-display animation
+void (*HomeMenu_BeforeDraw)();			// called at the very beginning of the menu loop
+void (*HomeMenu_AfterDraw)();			// called at the very end of the menu loop
+void (*HomeMenu_BeforeHideMenu)();		// called just before starting menu-hide animation
+void (*HomeMenu_AfterHideMenu)();		// called just after finishing menu-hide animaiton
 
-	f32 fader;	// Background and Foreground fader values.
-	const static int dimAmount = 96;	// amount background is dimmed when menu is open;
-	
-	u32 wm_status[4], wm_type[4];
-	
-	bool topHover[4], bottomHover[4], wiiMenuHover[4], loaderHover[4];
+// "private" stuff:
+// timer variables
+u32 __HomeMenu_last;
+f32 __HomeMenu_elapsed;
 
-	f32 zoomRate, fadeRate;	// rate at which top&bottom move, buttons zoom, active layers fade in/out.
-	
-	int screenWidth, screenHeight;
-	
-	static bool active;		// if false, menu closes.	(other threads may set false through HideMenu())
-};
+void __HomeMenu_resetCursors();
+void __HomeMenu_updateWiimotes();
+void __HomeMenu_slide(bool reverse);
+void __HomeMenu_animate();
+void __HomeMenu_draw();
+void __HomeMenu_updateTimer();
+void __HomeMenu_drawImage(HomeMenu_image *img);
+void __HomeMenu_setVisible(bool value);
+void __HomeMenu_moveAll(f32 offset);
+
+// frame buffer stuff:
+void* __HomeMenu_fb[2];		// framebuffers
+u8 __HomeMenu_fbi;			// frame buffer index
+u8 __HomeMenu_rumbleIntensity;	// values ranges from 0-2, only rumble when on 1 or 2.  This lowers the perceived rumble intensity.
+
+// tex buffers ( don't forget __attribute__((aligned(32))) when giving them values)
+extern const unsigned char HomeMenu_tex_top[];
+extern const unsigned char HomeMenu_tex_top_hover[];
+extern const unsigned char HomeMenu_tex_top_active[];
+extern const unsigned char HomeMenu_tex_bottom[];
+extern const unsigned char HomeMenu_tex_bottom_hover[];
+extern const unsigned char HomeMenu_tex_bottom_active[];
+extern const unsigned char HomeMenu_tex_text_top[];
+extern const unsigned char HomeMenu_tex_text_bottom[];
+extern const unsigned char HomeMenu_tex_wiimote[];
+extern const unsigned char HomeMenu_tex_battery_info[];
+extern const unsigned char HomeMenu_tex_battery0[];	// empty
+extern const unsigned char HomeMenu_tex_battery1[];
+extern const unsigned char HomeMenu_tex_battery2[];	// half
+extern const unsigned char HomeMenu_tex_battery3[];
+extern const unsigned char HomeMenu_tex_battery4[];	// full
+extern const unsigned char HomeMenu_tex_button_wiiMenu[];
+extern const unsigned char HomeMenu_tex_button_wiiMenu_active[];
+extern const unsigned char HomeMenu_tex_button_loader[];
+extern const unsigned char HomeMenu_tex_button_loader_active[];
+extern const unsigned char HomeMenu_tex_button_close[];
+extern const unsigned char HomeMenu_tex_p1_point[];
+extern const unsigned char HomeMenu_tex_p2_point[];
+extern const unsigned char HomeMenu_tex_p3_point[];
+extern const unsigned char HomeMenu_tex_p4_point[];
+extern const unsigned char HomeMenu_tex_p1[];
+extern const unsigned char HomeMenu_tex_p2[];
+extern const unsigned char HomeMenu_tex_p3[];
+extern const unsigned char HomeMenu_tex_p4[];
+void *HomeMenu_tex_bg;		// buffer for texture made from background
+
+HomeMenu_image HomeMenu_top, HomeMenu_top_hover, HomeMenu_top_active, HomeMenu_bottom, HomeMenu_bottom_hover, HomeMenu_bottom_active;
+HomeMenu_image HomeMenu_text_top, HomeMenu_text_bottom, HomeMenu_wiimote, HomeMenu_battery_info, HomeMenu_battery[4];
+HomeMenu_image HomeMenu_p[4];		// the "P" label beside the batter gauge
+HomeMenu_image HomeMenu_button_wiiMenu, HomeMenu_button_wiiMenu_active, HomeMenu_button_loader, HomeMenu_button_loader_active, HomeMenu_button_close;
+HomeMenu_image HomeMenu_pointer[4];
+HomeMenu_image HomeMenu_background;
+#define HomeMenu_IMG_COUNT 28
+HomeMenu_image* HomeMenu_images[HomeMenu_IMG_COUNT];		// conventient array of pointers to all images
+HomeMenu_cursor p1, p2, p3, p4;
+HomeMenu_cursor HomeMenu_cursors[4];
+
+f32 HomeMenu_fader;		// Foreground fader value.
+const static int HomeMenu_dimAmount = 96;	// amount background is dimmed when menu is open;
+
+u32 HomeMenu_wm_status[4], HomeMenu_wm_type[4];
+
+bool HomeMenu_topHover[4], HomeMenu_bottomHover[4], HomeMenu_wiiMenuHover[4], HomeMenu_loaderHover[4];
+
+f32 HomeMenu_zoomRate, HomeMenu_fadeRate;	// rate at which top&bottom move, buttons zoom, active layers fade in/out.
+
+int HomeMenu_screenWidth, HomeMenu_screenHeight;
+
+// Whether or not HomeMenu_Init() has been called
+extern bool HomeMenu_initialized;
+extern bool HomeMenu_active;		// if false, menu closes.	(other threads may set false through HideMenu())
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif
