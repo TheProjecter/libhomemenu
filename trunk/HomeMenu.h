@@ -7,9 +7,17 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#define SHORT_RUMBLE 0.047f
-#define RUMBLE_COOLDOWN 0.30f
-#define MENU_VOLUME 196
+#define SHORT_RUMBLE		0.047f
+#define RUMBLE_COOLDOWN 	0.30f
+#define MENU_VOLUME			196
+
+#define HM_GFX_FAILSAFE		0
+#define HM_GFX_GRRLIB		1
+#define HM_GFX_LIBWIISPRITE	2
+
+#define HM_SND_NOSOUND		0
+#define HM_SND_ASND 		1
+#define HM_SND_SDL			2
 
 typedef struct HomeMenu_image {
 	const void *texture;	// pointer to texture
@@ -33,6 +41,8 @@ typedef struct HomeMenu_cursor {
 } HomeMenu_cursor;
 
 bool HomeMenu_Init(int screenWidth, int screenHeight, void* framebuffer0, void* framebuffer1, u8 framebufferIndex);
+void HomeMenu_SetGFX(u8 lib);
+void HomeMenu_SetSND(u8 lib);
 void HomeMenu_Destroy();
 bool HomeMenu_Show();
 void HomeMenu_Hide();
@@ -65,12 +75,15 @@ void __HomeMenu_animate();
 void __HomeMenu_draw();
 void __HomeMenu_updateTimer();
 void __HomeMenu_drawImage(HomeMenu_image *img);
+void __HomeMenu_playPCM(const void* pcm, s32 pcm_size, s32 left, s32 right);
 void __HomeMenu_setVisible(bool value);
 void __HomeMenu_moveAll(f32 offset);
 
 // frame buffer stuff:
 void* __HomeMenu_fb[2];		// framebuffers
 u8 __HomeMenu_fbi;			// frame buffer index
+u8 __HomeMenu_gfx;			// underlying graphics library.  Values are 1: GRRLIB;  2: LibWiiSprite;  3:  LibWiiGUI;  0: Failsafe
+u8 __HomeMenu_snd;			// underlying sound library.  Values are 1: ASND;  2: SDL;  0: No Sound
 u8 __HomeMenu_rumbleIntensity;	// values ranges from 0-2, only rumble when on 1 or 2.  This lowers the perceived rumble intensity.
 
 // tex buffers ( don't forget __attribute__((aligned(32))) when giving them values)

@@ -4,6 +4,7 @@
 #include <malloc.h>
 #include <math.h>
 #include <wiiuse/wpad.h>
+#include <ogc/lwp_watchdog.h>
 #include "asndlib.h"
 
 #include "HomeMenu_snd_tick.h"
@@ -25,10 +26,9 @@ bool HomeMenu_Init(int width, int height, void* framebuffer0, void* framebuffer1
 	__HomeMenu_fb[1] = framebuffer1;
 	__HomeMenu_fbi = framebufferIndex;
 	__HomeMenu_rumbleIntensity = 0;
-	
-	// Initialize sound in case it hasn't been done already
-	ASND_Init();	// I don't think this causes problems if called twice (I did some quick checks).
-	
+	__HomeMenu_gfx = HM_GFX_FAILSAFE;		// default to failsafe drawing code
+	__HomeMenu_snd = HM_SND_NOSOUND;
+
 	// Set animation rates
 	HomeMenu_zoomRate  = 1.01f;	// orders/sec
 	HomeMenu_fadeRate = 2048;	// 256ths/sec
@@ -240,6 +240,23 @@ bool HomeMenu_Init(int width, int height, void* framebuffer0, void* framebuffer1
 }
 
 
+void HomeMenu_SetGFX(u8 lib) {
+	__HomeMenu_gfx = lib;
+}
+
+void HomeMenu_SetSND(u8 lib) {
+	switch (lib) {
+	  case HM_SND_ASND:
+		__HomeMenu_snd = lib;
+		// Initialize sound in case it hasn't been done already
+		ASND_Init();	// I don't think this causes problems if called twice (I did some quick checks).
+		ASND_Pause(0);	// resume playback (if it had been paused)
+		break;
+	  default:	// no support for SDL yet
+		__HomeMenu_snd = HM_SND_NOSOUND;
+	}
+}
+
 void HomeMenu_Destroy()
 {
 	if (HomeMenu_tex_bg != NULL) {
@@ -256,7 +273,6 @@ bool HomeMenu_Show()
 	// Set GX to our liking
 	GX_SetScissorBoxOffset(0, 0);
 	GX_SetScissor(0, 0, HomeMenu_screenWidth, HomeMenu_screenHeight);
-
 
 	// Set WPAD Data Format
 	// (Users should restore their Data Format when menu is closed)
@@ -285,13 +301,12 @@ bool HomeMenu_Show()
 	HomeMenu_bottom_active.a = 0;
 	HomeMenu_button_wiiMenu.s = 1;
 	HomeMenu_button_loader.s = 1;
-	
+
 	__HomeMenu_slide(false);
 	__HomeMenu_updateTimer();
 	
 	if (HomeMenu_AfterShowMenu != NULL) HomeMenu_AfterShowMenu();
-	
-	
+
 	//----------- Start of Main Menu Loop -----------//
 	HomeMenu_active = true;
 	while (HomeMenu_active)
@@ -611,6 +626,7 @@ void __HomeMenu_animate()
 		wiiMenuH |= HomeMenu_wiiMenuHover[i];
 		loaderH  |= HomeMenu_loaderHover[i];
 	}
+	
 	if (topH)
 	{
 		if (HomeMenu_top_hover.a != 255)
@@ -665,40 +681,92 @@ void __HomeMenu_drawImage(HomeMenu_image *img)
 	h = img->s * img->h;
 	x = img->x - w/2;
 	y = img->y - h/2;
-	
-	GXTexObj _texObj;
-	GX_InitTexObj(&_texObj, (void*)img->texture, img->w, img->h, GX_TF_RGBA8, GX_CLAMP, GX_CLAMP, GX_FALSE);
-	GX_LoadTexObj(&_texObj,GX_TEXMAP0);
-	Mtx model, tmp;
-	guMtxIdentity(model);
-	guMtxRotDeg(tmp, 'z', img->t);
-	guMtxConcat(model, tmp, model);
-	guMtxTransApply(model, model, img->x, img->y, 0.0f);
-	GX_LoadPosMtxImm(model, GX_PNMTX0);
 
-	GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
-		GX_Position2f32(-w/2, -h/2);
-		GX_Color4u8(img->r, img->g, img->b, img->a);
-		GX_TexCoord2f32(0, 0);
 
-		GX_Position2f32(w/2, -h/2);
-		GX_Color4u8(img->r, img->g, img->b, img->a);
-		GX_TexCoord2f32(1, 0);
+	// Drawing code for GRRLIB
+	if (__HomeMenu_gfx == HM_GFX_GRRLIB) {
+		GXTexObj _texObj;
+		GX_InitTexObj(&_texObj, (void*)img->texture, img->w, img->h, GX_TF_RGBA8, GX_CLAMP, GX_CLAMP, GX_FALSE);
+		//GX_InitTexObjLOD(&_texObj, GX_NEAR, GX_NEAR, 0.0f, 0.0f, 0.0f, 0, 0, GX_ANISO_1);
+		GX_LoadTexObj(&_texObj,GX_TEXMAP0);
+		
+		GX_SetTevOp (GX_TEVSTAGE0, GX_MODULATE);
+		GX_SetVtxDesc (GX_VA_TEX0, GX_DIRECT);
 
-		GX_Position2f32(w/2, h/2);
-		GX_Color4u8(img->r, img->g, img->b, img->a);
-		GX_TexCoord2f32(1, 1);
+		Mtx model, tmp;
+		guMtxIdentity(model);
+		guMtxRotDeg(tmp, 'z', img->t);
+		guMtxConcat(model, tmp, model);
+		guMtxTransApply(model, model, img->x, img->y, 0.0f);
+		GX_LoadPosMtxImm(model, GX_PNMTX0);
 
-		GX_Position2f32(-w/2, h/2);
-		GX_Color4u8(img->r, img->g, img->b, img->a);
-		GX_TexCoord2f32(0, 1);
-	GX_End();
+		GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
+			GX_Position3f32(-w/2, -h/2, 0);
+			GX_Color4u8(img->r, img->g, img->b, img->a);
+			GX_TexCoord2f32(0, 0);
+
+			GX_Position3f32(w/2, -h/2, 0);
+			GX_Color4u8(img->r, img->g, img->b, img->a);
+			GX_TexCoord2f32(1, 0);
+
+			GX_Position3f32(w/2, h/2, 0);
+			GX_Color4u8(img->r, img->g, img->b, img->a);
+			GX_TexCoord2f32(1, 1);
+
+			GX_Position3f32(-w/2, h/2, 0);
+			GX_Color4u8(img->r, img->g, img->b, img->a);
+			GX_TexCoord2f32(0, 1);
+		GX_End();
+		
+		GX_SetTevOp (GX_TEVSTAGE0, GX_PASSCLR);
+		GX_SetVtxDesc (GX_VA_TEX0, GX_NONE);
+} else
+
+// Drawing code for libwiisprite
+	if (__HomeMenu_gfx == HM_GFX_LIBWIISPRITE) {
+		GXTexObj _texObj;
+		GX_InitTexObj(&_texObj, (void*)img->texture, img->w, img->h, GX_TF_RGBA8, GX_CLAMP, GX_CLAMP, GX_FALSE);
+		GX_LoadTexObj(&_texObj,GX_TEXMAP0);
+		Mtx model, tmp;
+		guMtxIdentity(model);
+		guMtxRotDeg(tmp, 'z', img->t);
+		guMtxConcat(model, tmp, model);
+		guMtxTransApply(model, model, img->x, img->y, 0.0f);
+		GX_LoadPosMtxImm(model, GX_PNMTX0);
+
+		GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
+			GX_Position2f32(-w/2, -h/2);
+			GX_Color4u8(img->r, img->g, img->b, img->a);
+			GX_TexCoord2f32(0, 0);
+
+			GX_Position2f32(w/2, -h/2);
+			GX_Color4u8(img->r, img->g, img->b, img->a);
+			GX_TexCoord2f32(1, 0);
+
+			GX_Position2f32(w/2, h/2);
+			GX_Color4u8(img->r, img->g, img->b, img->a);
+			GX_TexCoord2f32(1, 1);
+
+			GX_Position2f32(-w/2, h/2);
+			GX_Color4u8(img->r, img->g, img->b, img->a);
+			GX_TexCoord2f32(0, 1);
+		GX_End();
+	} else {
+	// Failsafe rendering code 
+	//...
+	}
+
 }
 
 
+void __HomeMenu_playPCM(const void* pcm, s32 pcm_size, s32 left, s32 right)
+{
+	if (__HomeMenu_snd == HM_SND_ASND) {
+	}
+}
+
 void __HomeMenu_draw()
 {
-	//__drawBackground();
 	
 	int i;
 	for (i = 0; i < HomeMenu_IMG_COUNT; i++) {
@@ -718,7 +786,7 @@ void __HomeMenu_draw()
 
 void __HomeMenu_updateTimer()
 {
-	u32 current = ASND_GetTime();
+	u32 current = ticks_to_millisecs(gettime());
 	__HomeMenu_elapsed = (current - __HomeMenu_last)/1000.f;
 	__HomeMenu_last = current;
 }
