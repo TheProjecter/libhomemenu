@@ -252,8 +252,12 @@ void HomeMenu_SetSND(u8 lib) {
 		ASND_Init();	// I don't think this causes problems if called twice (I did some quick checks).
 		ASND_Pause(0);	// resume playback (if it had been paused)
 		break;
+	  case HM_SND_NOSOUND:
+		__HomeMenu_snd = lib;
+		break;
 	  default:	// no support for SDL yet
 		__HomeMenu_snd = HM_SND_NOSOUND;
+		break;
 	}
 }
 
@@ -487,7 +491,7 @@ void __HomeMenu_updateWiimotes()
 		// See if cursor is above buttons (oooh, shiny)
 		if (HomeMenu_cursors[i].pointer->y < HomeMenu_top.y + HomeMenu_top.h/2) {
 			if (!HomeMenu_topHover[i])
-				ASND_SetVoice(ASND_GetFirstUnusedVoice(), VOICE_MONO_16BIT, 48000, 0, (void*)snd_tick, snd_tick_size, 64, 64, NULL);
+				__HomeMenu_playPCM(snd_tick, snd_tick_size, 64, 64);
 			if (!HomeMenu_topHover[i] && HomeMenu_cursors[i].cooldownTimer <= 0)
 				HomeMenu_cursors[i].rumbleTimer = SHORT_RUMBLE;
 			HomeMenu_topHover[i] = true;
@@ -496,7 +500,7 @@ void __HomeMenu_updateWiimotes()
 		
 		if (HomeMenu_cursors[i].pointer->y > HomeMenu_bottom.y - HomeMenu_bottom.h/2) {
 			if (!HomeMenu_bottomHover[i])
-				ASND_SetVoice(ASND_GetFirstUnusedVoice(), VOICE_MONO_16BIT, 48000, 0, (void*)snd_tick, snd_tick_size, 64, 64, NULL);
+				__HomeMenu_playPCM(snd_tick, snd_tick_size, 64, 64);
 			if (!HomeMenu_bottomHover[i] && HomeMenu_cursors[i].cooldownTimer <= 0)
 				HomeMenu_cursors[i].rumbleTimer = SHORT_RUMBLE;
 			HomeMenu_bottomHover[i] = true;
@@ -529,7 +533,7 @@ void __HomeMenu_updateWiimotes()
 		}
 		
 		if (!before && HomeMenu_wiiMenuHover[i]) {	// if we just rolled onto HomeMenu_button_wiiMenu
-			ASND_SetVoice(ASND_GetFirstUnusedVoice(), VOICE_MONO_16BIT, 48000, 0, (void*)snd_tick, snd_tick_size, 96, 32, NULL);
+			__HomeMenu_playPCM(snd_tick, snd_tick_size, 96, 32);
 			if (HomeMenu_cursors[i].cooldownTimer <= 0)
 				HomeMenu_cursors[i].rumbleTimer = SHORT_RUMBLE;
 		}
@@ -560,7 +564,7 @@ void __HomeMenu_updateWiimotes()
 		}
 		
 		if (!before && HomeMenu_loaderHover[i]) {	// if we just rolled onto HomeMenu_button_loader
-			ASND_SetVoice(ASND_GetFirstUnusedVoice(), VOICE_MONO_16BIT, 48000, 0, (void*)snd_tick, snd_tick_size, 32, 96, NULL);
+			__HomeMenu_playPCM(snd_tick, snd_tick_size, 32, 96);
 			if (HomeMenu_cursors[i].cooldownTimer <= 0)
 				HomeMenu_cursors[i].rumbleTimer = SHORT_RUMBLE;
 		}
@@ -755,13 +759,13 @@ void __HomeMenu_drawImage(HomeMenu_image *img)
 	// Failsafe rendering code 
 	//...
 	}
-
 }
 
 
 void __HomeMenu_playPCM(const void* pcm, s32 pcm_size, s32 left, s32 right)
 {
 	if (__HomeMenu_snd == HM_SND_ASND) {
+		ASND_SetVoice(ASND_GetFirstUnusedVoice(), VOICE_MONO_16BIT, 48000, 0, (void*)pcm, pcm_size, left, right, NULL);
 	}
 }
 
