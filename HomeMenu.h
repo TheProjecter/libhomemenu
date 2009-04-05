@@ -82,9 +82,12 @@ void __HomeMenu_moveAll(f32 offset);
 // frame buffer stuff:
 void* __HomeMenu_fb[2];		// framebuffers
 u8 __HomeMenu_fbi;			// frame buffer index
-u8 __HomeMenu_gfx;			// underlying graphics library.  Values are 1: GRRLIB;  2: LibWiiSprite;  3:  LibWiiGUI;  0: Failsafe
-u8 __HomeMenu_snd;			// underlying sound library.  Values are 1: ASND;  2: SDL;  0: No Sound
-u8 __HomeMenu_rumbleIntensity;	// values ranges from 0-2, only rumble when on 1 or 2.  This lowers the perceived rumble intensity.
+
+
+u8  __HomeMenu_gfx;			// underlying graphics library.  Values are 1: GRRLIB;  2: LibWiiSprite;  3:  LibWiiGUI;  0: Failsafe
+u8  __HomeMenu_snd;			// underlying sound library.  Values are 1: ASND;  2: SDL;  0: No Sound
+u8  __HomeMenu_rumbleIntensity;	// values ranges from 0-2, only rumble when on 1 or 2.  This lowers the perceived rumble intensity.
+f32 __HomeMenu_xRatio;		// 1 for normal screen; 0.75 for widescreen.  Used to horizontally scale images in widescreen mode.
 
 // tex buffers ( don't forget __attribute__((aligned(32))) when giving them values)
 extern const unsigned char HomeMenu_tex_top[];

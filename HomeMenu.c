@@ -28,6 +28,10 @@ bool HomeMenu_Init(int width, int height, void* framebuffer0, void* framebuffer1
 	__HomeMenu_rumbleIntensity = 0;
 	__HomeMenu_gfx = HM_GFX_FAILSAFE;		// default to failsafe drawing code
 	__HomeMenu_snd = HM_SND_NOSOUND;
+	if (CONF_GetAspectRatio() == CONF_ASPECT_16_9) 
+		__HomeMenu_xRatio = 0.75f;
+	else
+		__HomeMenu_xRatio = 1;
 
 	// Set animation rates
 	HomeMenu_zoomRate  = 1.01f;	// orders/sec
@@ -46,32 +50,32 @@ bool HomeMenu_Init(int width, int height, void* framebuffer0, void* framebuffer1
 	
 	// prepare images
 	HomeMenu_top.texture = &HomeMenu_tex_top;
-	HomeMenu_top.w = 728;	HomeMenu_top.h = 112;
+	HomeMenu_top.w = 4;	HomeMenu_top.h = 112;
 	HomeMenu_top.x = HomeMenu_top.y = HomeMenu_top.r = HomeMenu_top.g = HomeMenu_top.b = HomeMenu_top.a = 0xFF;
 	HomeMenu_top.t = 0;	HomeMenu_top.s = 1;	HomeMenu_top.visible = true;
 
 	HomeMenu_top_hover.texture = &HomeMenu_tex_top_hover;
-	HomeMenu_top_hover.w = 728;	HomeMenu_top_hover.h = 112;
+	HomeMenu_top_hover.w = 4;	HomeMenu_top_hover.h = 112;
 	HomeMenu_top_hover.x = HomeMenu_top_hover.y = HomeMenu_top_hover.r = HomeMenu_top_hover.g = HomeMenu_top_hover.b = 0xFF;
 	HomeMenu_top_hover.a = HomeMenu_top_hover.t = 0;	HomeMenu_top_hover.s = 1;	HomeMenu_top_hover.visible = true;
 
 	HomeMenu_top_active.texture = &HomeMenu_tex_top_active;
-	HomeMenu_top_active.w = 728;	HomeMenu_top_active.h = 112;
+	HomeMenu_top_active.w = 4;	HomeMenu_top_active.h = 112;
 	HomeMenu_top_active.x = HomeMenu_top_active.y = HomeMenu_top_active.r = HomeMenu_top_active.g = HomeMenu_top_active.b = 0xFF;
 	HomeMenu_top_active.a = HomeMenu_top_active.t = 0;	HomeMenu_top_active.s = 1;	HomeMenu_top_active.visible = true;
 
 	HomeMenu_bottom.texture = &HomeMenu_tex_bottom;
-	HomeMenu_bottom.w = 728;	HomeMenu_bottom.h = 112;
+	HomeMenu_bottom.w = 4;	HomeMenu_bottom.h = 112;
 	HomeMenu_bottom.x = HomeMenu_bottom.y = HomeMenu_bottom.r = HomeMenu_bottom.g = HomeMenu_bottom.b = HomeMenu_bottom.a = 0xFF;
 	HomeMenu_bottom.t = 0;	HomeMenu_bottom.s = 1;	HomeMenu_bottom.visible = true;
 
 	HomeMenu_bottom_hover.texture = &HomeMenu_tex_bottom_hover;
-	HomeMenu_bottom_hover.w = 728;	HomeMenu_bottom_hover.h = 112;
+	HomeMenu_bottom_hover.w = 4;	HomeMenu_bottom_hover.h = 112;
 	HomeMenu_bottom_hover.x = HomeMenu_bottom_hover.y = HomeMenu_bottom_hover.r = HomeMenu_bottom_hover.g = HomeMenu_bottom_hover.b = 0xFF;
 	HomeMenu_bottom_hover.a = HomeMenu_bottom_hover.t = 0;	HomeMenu_bottom_hover.s = 1;	HomeMenu_bottom_hover.visible = true;
 
 	HomeMenu_bottom_active.texture = &HomeMenu_tex_bottom_active;
-	HomeMenu_bottom_active.w = 728;	HomeMenu_bottom_active.h = 112;
+	HomeMenu_bottom_active.w = 4;	HomeMenu_bottom_active.h = 112;
 	HomeMenu_bottom_active.x = HomeMenu_bottom_active.y = HomeMenu_bottom_active.r = HomeMenu_bottom_active.g = HomeMenu_bottom_active.b = 0xFF;
 	HomeMenu_bottom_active.a = HomeMenu_bottom_active.t = 0;	HomeMenu_bottom_active.s = 1;	HomeMenu_bottom_active.visible = true;
 
@@ -679,14 +683,25 @@ void __HomeMenu_drawImage(HomeMenu_image *img)
 {
 	if (!img->visible)
 		return;
-	
+		
 	float x, y, w, h;
 	w = img->s * img->w;
 	h = img->s * img->h;
+	// width exceptions for top and bottom strips
+	if (img == HomeMenu_images[1] ||
+		img == HomeMenu_images[2] ||
+		img == HomeMenu_images[3] ||
+		img == HomeMenu_images[4] ||
+		img == HomeMenu_images[5] ||
+		img == HomeMenu_images[6])
+		w = 728;
+	else
+		// scale everything according for widescreen (if needed), except for background
+		if (img != HomeMenu_images[0])
+			w *= __HomeMenu_xRatio;
 	x = img->x - w/2;
 	y = img->y - h/2;
-
-
+	
 	// Drawing code for GRRLIB
 	if (__HomeMenu_gfx == HM_GFX_GRRLIB) {
 		GXTexObj _texObj;
@@ -730,6 +745,7 @@ void __HomeMenu_drawImage(HomeMenu_image *img)
 	if (__HomeMenu_gfx == HM_GFX_LIBWIISPRITE) {
 		GXTexObj _texObj;
 		GX_InitTexObj(&_texObj, (void*)img->texture, img->w, img->h, GX_TF_RGBA8, GX_CLAMP, GX_CLAMP, GX_FALSE);
+
 		GX_LoadTexObj(&_texObj,GX_TEXMAP0);
 		Mtx model, tmp;
 		guMtxIdentity(model);
@@ -769,6 +785,7 @@ void __HomeMenu_playPCM(const void* pcm, s32 pcm_size, s32 left, s32 right)
 	}
 }
 
+
 void __HomeMenu_draw()
 {
 	
@@ -787,6 +804,7 @@ void __HomeMenu_draw()
 	__HomeMenu_fbi ^= 1;
 	GX_InvalidateTexAll();
 }
+
 
 void __HomeMenu_updateTimer()
 {
@@ -841,21 +859,21 @@ void __HomeMenu_moveAll(f32 offset)
 	HomeMenu_wiimote.y = HomeMenu_bottom.y + 5;
 	HomeMenu_battery_info.x = HomeMenu_screenWidth*0.59f;
 	HomeMenu_battery_info.y = HomeMenu_bottom.y - HomeMenu_bottom.h/2;
-	HomeMenu_battery[0].x = HomeMenu_battery_info.x - 140;
+	HomeMenu_battery[0].x = HomeMenu_battery_info.x - 140 * __HomeMenu_xRatio;
 	HomeMenu_battery[0].y = HomeMenu_battery_info.y - 1;
-	HomeMenu_battery[1].x = HomeMenu_battery_info.x - 34;
+	HomeMenu_battery[1].x = HomeMenu_battery_info.x - 34 * __HomeMenu_xRatio;
 	HomeMenu_battery[1].y = HomeMenu_battery_info.y - 1;
-	HomeMenu_battery[2].x = HomeMenu_battery_info.x + 72;
+	HomeMenu_battery[2].x = HomeMenu_battery_info.x + 72 * __HomeMenu_xRatio;
 	HomeMenu_battery[2].y = HomeMenu_battery_info.y - 1;
-	HomeMenu_battery[3].x = HomeMenu_battery_info.x + 178;
+	HomeMenu_battery[3].x = HomeMenu_battery_info.x + 178 * __HomeMenu_xRatio;
 	HomeMenu_battery[3].y = HomeMenu_battery_info.y - 1;
-	HomeMenu_p[0].x = HomeMenu_battery[0].x - 46;
+	HomeMenu_p[0].x = HomeMenu_battery[0].x - 46 * __HomeMenu_xRatio;
 	HomeMenu_p[0].y = HomeMenu_battery[0].y;
-	HomeMenu_p[1].x = HomeMenu_battery[1].x - 46;
+	HomeMenu_p[1].x = HomeMenu_battery[1].x - 46 * __HomeMenu_xRatio;
 	HomeMenu_p[1].y = HomeMenu_battery[1].y;
-	HomeMenu_p[2].x = HomeMenu_battery[2].x - 46;
+	HomeMenu_p[2].x = HomeMenu_battery[2].x - 46 * __HomeMenu_xRatio;
 	HomeMenu_p[2].y = HomeMenu_battery[2].y;
-	HomeMenu_p[3].x = HomeMenu_battery[3].x - 46;
+	HomeMenu_p[3].x = HomeMenu_battery[3].x - 46 * __HomeMenu_xRatio;
 	HomeMenu_p[3].y = HomeMenu_battery[3].y;
 	HomeMenu_button_wiiMenu.x = HomeMenu_screenWidth*0.27f;
 	HomeMenu_button_wiiMenu.y = HomeMenu_screenHeight*0.48f;
