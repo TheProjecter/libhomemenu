@@ -9,6 +9,9 @@
 
 #include "HomeMenu_snd_tick.h"
 #include "HomeMenu_snd_exit.h"
+#include "HomeMenu_snd_popup.h"
+#include "HomeMenu_snd_popdown.h"
+#include "HomeMenu_snd_ping.h"
 
 // set HomeMenu to uninitialized
 bool HomeMenu_initialized = false;
@@ -308,6 +311,7 @@ bool HomeMenu_Show()
 	HomeMenu_button_wiiMenu.s = 1;
 	HomeMenu_button_loader.s = 1;
 
+	__HomeMenu_playPCM(HomeMenu_snd_popup, HomeMenu_snd_popup_size, 128, 128, false);
 	__HomeMenu_slide(false);
 	__HomeMenu_updateTimer();
 	
@@ -335,17 +339,25 @@ bool HomeMenu_Show()
 				HomeMenu_active = false;
 			
 			// Catch other clicks:
-			if (WPAD_BUTTON_A & WPAD_ButtonsDown(i) && HomeMenu_topState[i] == HM_HOTSPOT_HOVER)
+			if (WPAD_BUTTON_A & WPAD_ButtonsDown(i) && HomeMenu_topState[i] == HM_HOTSPOT_HOVER) {
+				__HomeMenu_playPCM(HomeMenu_snd_ping, HomeMenu_snd_ping_size, 128, 128, false);
 				HomeMenu_topState[i] = HM_HOTSPOT_ACTIVATED;
+			}
 				
-			if (WPAD_BUTTON_A & WPAD_ButtonsDown(i) && HomeMenu_bottomState[i] == HM_HOTSPOT_HOVER)
+			if (WPAD_BUTTON_A & WPAD_ButtonsDown(i) && HomeMenu_bottomState[i] == HM_HOTSPOT_HOVER) {
+				__HomeMenu_playPCM(HomeMenu_snd_ping, HomeMenu_snd_ping_size, 128, 128, false);
 				HomeMenu_bottomState[i] = HM_HOTSPOT_ACTIVATED;
+			}
 
-			if (WPAD_BUTTON_A & WPAD_ButtonsDown(i) && HomeMenu_wiiMenuState[i] == HM_HOTSPOT_HOVER)
+			if (WPAD_BUTTON_A & WPAD_ButtonsDown(i) && HomeMenu_wiiMenuState[i] == HM_HOTSPOT_HOVER) {
+				__HomeMenu_playPCM(HomeMenu_snd_ping, HomeMenu_snd_ping_size, 96, 32, false);
 				HomeMenu_wiiMenuState[i] = HM_HOTSPOT_ACTIVATED;
+			}
 					
-			if (WPAD_BUTTON_A & WPAD_ButtonsDown(i) && HomeMenu_loaderState[i] == HM_HOTSPOT_HOVER)
+			if (WPAD_BUTTON_A & WPAD_ButtonsDown(i) && HomeMenu_loaderState[i] == HM_HOTSPOT_HOVER) {
+				__HomeMenu_playPCM(HomeMenu_snd_ping, HomeMenu_snd_ping_size, 32, 96, false);
 				HomeMenu_loaderState[i] = HM_HOTSPOT_ACTIVATED;
+			}
 			
 			// Carry out hotspot actions
 			if ((HomeMenu_topState[i]     & HM_HOTSPOT_ACTIVE) == HM_HOTSPOT_ACTIVE) {
@@ -397,7 +409,9 @@ bool HomeMenu_Show()
 		
 		if (HomeMenu_AfterDraw != NULL) HomeMenu_AfterDraw();
 	}
+	__HomeMenu_playPCM(HomeMenu_snd_popdown, HomeMenu_snd_popdown_size, 128, 128, false);
 	//------------ End of Main Menu Loop ------------//
+
 
 	if (HomeMenu_BeforeHideMenu != NULL) HomeMenu_BeforeHideMenu();
 	
