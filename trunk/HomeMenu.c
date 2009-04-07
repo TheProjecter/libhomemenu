@@ -366,7 +366,7 @@ bool HomeMenu_Show()
 				// fade to black
 				__HomeMenu_playPCM(HomeMenu_snd_exit, HomeMenu_snd_exit_size, 128, 128, true);
 				for (HomeMenu_fader = 0; HomeMenu_fader < 256; HomeMenu_fader++) {
-					HomeMenu_fader = MIN(255, HomeMenu_fader + 7);
+					HomeMenu_fader = MIN(255, HomeMenu_fader + 6);
 					__HomeMenu_draw();
 				}
 				
@@ -382,7 +382,7 @@ bool HomeMenu_Show()
 				// fade to black
 				__HomeMenu_playPCM(HomeMenu_snd_exit, HomeMenu_snd_exit_size, 128, 128, true);
 				for (HomeMenu_fader = 0; HomeMenu_fader < 256; HomeMenu_fader++) {
-					HomeMenu_fader = MIN(255, HomeMenu_fader + 7);
+					HomeMenu_fader = MIN(255, HomeMenu_fader + 6);
 					__HomeMenu_draw();
 				}
 				
