@@ -301,7 +301,6 @@ bool HomeMenu_Show()
 
 	// Startup animation:
 	__HomeMenu_setVisible(true);
-	__HomeMenu_updateWiimotes();
 	HomeMenu_cursors[0].pointer->visible = false;
 	HomeMenu_cursors[1].pointer->visible = false;
 	HomeMenu_cursors[2].pointer->visible = false;
