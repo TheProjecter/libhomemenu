@@ -1,4 +1,4 @@
-#include "HomeMenu.h"
+	#include "HomeMenu.h"
 
 #include <stdlib.h>
 #include <malloc.h>
@@ -8,6 +8,7 @@
 #include "asndlib.h"
 
 #include "HomeMenu_snd_tick.h"
+#include "HomeMenu_snd_exit.h"
 
 // set HomeMenu to uninitialized
 bool HomeMenu_initialized = false;
@@ -25,6 +26,7 @@ bool HomeMenu_Init(int width, int height, void* framebuffer0, void* framebuffer1
 	__HomeMenu_fb[0] = framebuffer0;
 	__HomeMenu_fb[1] = framebuffer1;
 	__HomeMenu_fbi = framebufferIndex;
+	__HomeMenu_fbi0 = framebufferIndex;
 	__HomeMenu_rumbleIntensity = 0;
 	__HomeMenu_gfx = HM_GFX_FAILSAFE;		// default to failsafe drawing code
 	__HomeMenu_snd = HM_SND_NOSOUND;
@@ -33,10 +35,6 @@ bool HomeMenu_Init(int width, int height, void* framebuffer0, void* framebuffer1
 	else
 		__HomeMenu_xRatio = 1;
 
-	// Set animation rates
-	HomeMenu_zoomRate  = 1.01f;	// orders/sec
-	HomeMenu_fadeRate = 2048;	// 256ths/sec
-	
 	// prepare buffer for screenshot to be used as our background
 	HomeMenu_tex_bg = memalign(32, GX_GetTexBufferSize(HomeMenu_screenWidth, HomeMenu_screenHeight, GX_TF_RGBA8, GX_FALSE, 1));
 
@@ -337,24 +335,64 @@ bool HomeMenu_Show()
 				HomeMenu_active = false;
 			
 			// Catch other clicks:
-			if (WPAD_BUTTON_A & WPAD_ButtonsDown(i) && (HomeMenu_topHover[i] || HomeMenu_bottomHover[i]))
-				HomeMenu_active = false;
+			if (WPAD_BUTTON_A & WPAD_ButtonsDown(i) && HomeMenu_topState[i] == HM_HOTSPOT_HOVER)
+				HomeMenu_topState[i] = HM_HOTSPOT_ACTIVATED;
+				
+			if (WPAD_BUTTON_A & WPAD_ButtonsDown(i) && HomeMenu_bottomState[i] == HM_HOTSPOT_HOVER)
+				HomeMenu_bottomState[i] = HM_HOTSPOT_ACTIVATED;
 
-			if (WPAD_BUTTON_A & WPAD_ButtonsDown(i) && HomeMenu_wiiMenuHover[i]) {
+			if (WPAD_BUTTON_A & WPAD_ButtonsDown(i) && HomeMenu_wiiMenuState[i] == HM_HOTSPOT_HOVER)
+				HomeMenu_wiiMenuState[i] = HM_HOTSPOT_ACTIVATED;
+					
+			if (WPAD_BUTTON_A & WPAD_ButtonsDown(i) && HomeMenu_loaderState[i] == HM_HOTSPOT_HOVER)
+				HomeMenu_loaderState[i] = HM_HOTSPOT_ACTIVATED;
+			
+			// Carry out hotspot actions
+			if ((HomeMenu_topState[i]     & HM_HOTSPOT_ACTIVE) == HM_HOTSPOT_ACTIVE) {
+				HomeMenu_topState[i]    = HM_HOTSPOT_INACTIVE;
+				HomeMenu_active = false;
+			}
+			
+			if ((HomeMenu_bottomState[i]  & HM_HOTSPOT_ACTIVE) == HM_HOTSPOT_ACTIVE) {
+				HomeMenu_bottomState[i] = HM_HOTSPOT_INACTIVE;
+				HomeMenu_active = false;
+			}
+			
+			if ((HomeMenu_wiiMenuState[i] & HM_HOTSPOT_ACTIVE) == HM_HOTSPOT_ACTIVE) {
+				HomeMenu_wiiMenuState[i] = HM_HOTSPOT_INACTIVE;
 				// implement and call returnToMenu callback
 				// manditory callback... since game has to clean up
-				SYS_ResetSystem(SYS_RETURNTOMENU,0,0);
+				
+				// fade to black
+				__HomeMenu_playPCM(HomeMenu_snd_exit, HomeMenu_snd_exit_size, 128, 128, true);
+				for (HomeMenu_fader = 0; HomeMenu_fader < 256; HomeMenu_fader++) {
+					HomeMenu_fader = MIN(255, HomeMenu_fader + 7);
+					__HomeMenu_draw();
+				}
+				
+				HomeMenu_active = false;
+				//SYS_ResetSystem(SYS_RETURNTOMENU,0,0);
 			}
 					
-			if (WPAD_BUTTON_A & WPAD_ButtonsDown(i) && HomeMenu_loaderHover[i]) {
+			if ((HomeMenu_loaderState[i]  & HM_HOTSPOT_ACTIVE) == HM_HOTSPOT_ACTIVE) {
+				HomeMenu_loaderState[i]  = HM_HOTSPOT_INACTIVE;
 				// implement and call returnToLoader callback
 				// manditory callback... since game has to clean up
-				__HomeMenu_resetCursors();
-				exit(1);
+				
+				// fade to black
+				__HomeMenu_playPCM(HomeMenu_snd_exit, HomeMenu_snd_exit_size, 128, 128, true);
+				for (HomeMenu_fader = 0; HomeMenu_fader < 256; HomeMenu_fader++) {
+					HomeMenu_fader = MIN(255, HomeMenu_fader + 7);
+					__HomeMenu_draw();
+				}
+				
+				HomeMenu_active = false;
+				exit(1);	// eventually, return a value.
 			}
 		}
 		
 		// draw
+		HomeMenu_fader = 0;	// not necessary, but good just in case.
 		__HomeMenu_draw();
 		
 		if (HomeMenu_AfterDraw != NULL) HomeMenu_AfterDraw();
@@ -369,12 +407,10 @@ bool HomeMenu_Show()
 	__HomeMenu_slide(true);
 	__HomeMenu_setVisible(false);
 
-	__HomeMenu_draw();	// draw a second time so that both framebuffers are the same
+	if (__HomeMenu_fbi != __HomeMenu_fbi0)
+		__HomeMenu_draw();	// draw a second time so we end on the right buffer.
 	// leave a copy of background in framebuffer to avoid flicker on exit
 	__HomeMenu_drawImage(&HomeMenu_background);	// is there a better way of doing this?
-
-	
-	// restore GX here.
 
 	
 	if (HomeMenu_AfterHideMenu != NULL) HomeMenu_AfterHideMenu();
@@ -426,8 +462,8 @@ void __HomeMenu_resetCursors()
 	// set all hotspots to inactive, and prepare our HomeMenu_cursors (continued)
 	int i;
 	for (i = 0; i < 4; i++) {
-		HomeMenu_topHover[i]		= HomeMenu_bottomHover[i] = false;	// Cursor is NOT hovering over buttons
-		HomeMenu_wiiMenuHover[i]	= HomeMenu_loaderHover[i] = false;	// ditto
+		HomeMenu_topState[i]		= HomeMenu_bottomState[i] = HM_HOTSPOT_INACTIVE;	// Cursor is NOT hovering over buttons
+		HomeMenu_wiiMenuState[i]	= HomeMenu_loaderState[i] = HM_HOTSPOT_INACTIVE;	// ditto
 		
 		HomeMenu_cursors[i].pointer->visible = false;
 		HomeMenu_cursors[i].pointer->x = -100;
@@ -492,29 +528,29 @@ void __HomeMenu_updateWiimotes()
 			HomeMenu_p[i].a = 96;
 		}
 		
-		// See if cursor is above buttons (oooh, shiny)
+		// See if cursor is above hotspots (oooh, shiny)
 		if (HomeMenu_cursors[i].pointer->y < HomeMenu_top.y + HomeMenu_top.h/2) {
-			if (!HomeMenu_topHover[i])
-				__HomeMenu_playPCM(snd_tick, snd_tick_size, 64, 64);
-			if (!HomeMenu_topHover[i] && HomeMenu_cursors[i].cooldownTimer <= 0)
+			if (HomeMenu_topState[i] == HM_HOTSPOT_INACTIVE)
+				__HomeMenu_playPCM(HomeMenu_snd_tick, HomeMenu_snd_tick_size, 64, 64, false);
+			if (!HomeMenu_topState[i] == HM_HOTSPOT_HOVER && HomeMenu_cursors[i].cooldownTimer <= 0)
 				HomeMenu_cursors[i].rumbleTimer = SHORT_RUMBLE;
-			HomeMenu_topHover[i] = true;
+			HomeMenu_topState[i] |= HM_HOTSPOT_HOVER;
 		} else
-			HomeMenu_topHover[i] = false;
+			HomeMenu_topState[i] &= (0xFF - HM_HOTSPOT_HOVER);
 		
 		if (HomeMenu_cursors[i].pointer->y > HomeMenu_bottom.y - HomeMenu_bottom.h/2) {
-			if (!HomeMenu_bottomHover[i])
-				__HomeMenu_playPCM(snd_tick, snd_tick_size, 64, 64);
-			if (!HomeMenu_bottomHover[i] && HomeMenu_cursors[i].cooldownTimer <= 0)
+			if (HomeMenu_bottomState[i] == HM_HOTSPOT_INACTIVE)
+				__HomeMenu_playPCM(HomeMenu_snd_tick, HomeMenu_snd_tick_size, 64, 64, false);
+			if (!HomeMenu_bottomState[i] == HM_HOTSPOT_HOVER && HomeMenu_cursors[i].cooldownTimer <= 0)
 				HomeMenu_cursors[i].rumbleTimer = SHORT_RUMBLE;
-			HomeMenu_bottomHover[i] = true;
+			HomeMenu_bottomState[i] |= HM_HOTSPOT_HOVER;
 		} else
-			HomeMenu_bottomHover[i] = false;
+			HomeMenu_bottomState[i] &= (0xFF - HM_HOTSPOT_HOVER);
 		
-		bool before = HomeMenu_wiiMenuHover[i];	// value of wiiMenuHover prior to collision test
+		u8 before = HomeMenu_wiiMenuState[i];	// value of wiiMenuHover prior to collision test
 		
 		// if on HomeMenu_button_wiiMenu's bounding box
-		HomeMenu_wiiMenuHover[i] = false;
+		HomeMenu_wiiMenuState[i] &= (0xFF - HM_HOTSPOT_HOVER);
 		if ((HomeMenu_cursors[i].pointer->y > HomeMenu_button_wiiMenu.y - 46) &&
 			(HomeMenu_cursors[i].pointer->y < HomeMenu_button_wiiMenu.y + 46) &&
 			(HomeMenu_cursors[i].pointer->x > HomeMenu_button_wiiMenu.x - 114) &&
@@ -522,30 +558,30 @@ void __HomeMenu_updateWiimotes()
 			// if over HomeMenu_button_wiiMenu's inner rectangle
 			if ((HomeMenu_cursors[i].pointer->x > HomeMenu_button_wiiMenu.x - 114 + 46) &&
 				(HomeMenu_cursors[i].pointer->x < HomeMenu_button_wiiMenu.x + 114 - 46))
-					HomeMenu_wiiMenuHover[i] = true;
+					HomeMenu_wiiMenuState[i] |= HM_HOTSPOT_HOVER;
 			// if over HomeMenu_button_wiiMenu's outer circles
 			f32 angleL = atan2(HomeMenu_cursors[i].pointer->x - (HomeMenu_button_wiiMenu.x - 68), HomeMenu_cursors[i].pointer->y - HomeMenu_button_wiiMenu.y);
 			f32 angleR = atan2(HomeMenu_cursors[i].pointer->x - (HomeMenu_button_wiiMenu.x + 68), HomeMenu_cursors[i].pointer->y - HomeMenu_button_wiiMenu.y);
 			
 			// left
 			if (HomeMenu_cursors[i].pointer->x > HomeMenu_button_wiiMenu.x - 68 + 46*sin(angleL) && HomeMenu_cursors[i].pointer->x < HomeMenu_button_wiiMenu.x)
-				HomeMenu_wiiMenuHover[i] = true;
+				HomeMenu_wiiMenuState[i] |= HM_HOTSPOT_HOVER;
 			
 			// right
 			if (HomeMenu_cursors[i].pointer->x < HomeMenu_button_wiiMenu.x + 68 + 46*sin(angleR) && HomeMenu_cursors[i].pointer->x > HomeMenu_button_wiiMenu.x)
-				HomeMenu_wiiMenuHover[i] = true;
+				HomeMenu_wiiMenuState[i] |= HM_HOTSPOT_HOVER;
 		}
 		
-		if (!before && HomeMenu_wiiMenuHover[i]) {	// if we just rolled onto HomeMenu_button_wiiMenu
-			__HomeMenu_playPCM(snd_tick, snd_tick_size, 96, 32);
+		if (before == HM_HOTSPOT_INACTIVE && HomeMenu_wiiMenuState[i] != HM_HOTSPOT_INACTIVE) {	// if we just rolled onto HomeMenu_button_wiiMenu
+			__HomeMenu_playPCM(HomeMenu_snd_tick, HomeMenu_snd_tick_size, 96, 32, false);
 			if (HomeMenu_cursors[i].cooldownTimer <= 0)
 				HomeMenu_cursors[i].rumbleTimer = SHORT_RUMBLE;
 		}
 		
-		before = HomeMenu_loaderHover[i];	// value of wiiMenuHover prior to collision test
+		before = HomeMenu_loaderState[i];	// value of wiiMenuHover prior to collision test
 		
 		// if on HomeMenu_button_loader's bounding box
-		HomeMenu_loaderHover[i] = false;
+		HomeMenu_loaderState[i] &= (0xFF - HM_HOTSPOT_HOVER);
 		if ((HomeMenu_cursors[i].pointer->y > HomeMenu_button_loader.y - 46) &&
 			(HomeMenu_cursors[i].pointer->y < HomeMenu_button_loader.y + 46) &&
 			(HomeMenu_cursors[i].pointer->x > HomeMenu_button_loader.x - 114) &&
@@ -553,22 +589,22 @@ void __HomeMenu_updateWiimotes()
 			// if over HomeMenu_button_wiiMenu's inner rectangle
 			if ((HomeMenu_cursors[i].pointer->x > HomeMenu_button_loader.x - 114 + 46) &&
 				(HomeMenu_cursors[i].pointer->x < HomeMenu_button_loader.x + 114 - 46))
-					HomeMenu_loaderHover[i] = true;
+					HomeMenu_loaderState[i] |= HM_HOTSPOT_HOVER;
 			// if over HomeMenu_button_wiiMenu's outer circles
 			f32 angleL = atan2(HomeMenu_cursors[i].pointer->x - (HomeMenu_button_loader.x - 68), HomeMenu_cursors[i].pointer->y - HomeMenu_button_loader.y);
 			f32 angleR = atan2(HomeMenu_cursors[i].pointer->x - (HomeMenu_button_loader.x + 68), HomeMenu_cursors[i].pointer->y - HomeMenu_button_loader.y);
 			
 			// left
 			if (HomeMenu_cursors[i].pointer->x > HomeMenu_button_loader.x - 68 + 46*sin(angleL) && HomeMenu_cursors[i].pointer->x < HomeMenu_button_loader.x)
-				HomeMenu_loaderHover[i] = true;
+				HomeMenu_loaderState[i] |= HM_HOTSPOT_HOVER;
 			
 			// right
 			if (HomeMenu_cursors[i].pointer->x < HomeMenu_button_loader.x + 68 + 46*sin(angleR) && HomeMenu_cursors[i].pointer->x > HomeMenu_button_loader.x)
-				HomeMenu_loaderHover[i] = true;
+				HomeMenu_loaderState[i] |= HM_HOTSPOT_HOVER;
 		}
 		
-		if (!before && HomeMenu_loaderHover[i]) {	// if we just rolled onto HomeMenu_button_loader
-			__HomeMenu_playPCM(snd_tick, snd_tick_size, 32, 96);
+		if (before == HM_HOTSPOT_INACTIVE && HomeMenu_loaderState[i] != HM_HOTSPOT_INACTIVE) {	// if we just rolled onto HomeMenu_button_loader
+			__HomeMenu_playPCM(HomeMenu_snd_tick, HomeMenu_snd_tick_size, 32, 96, false);
 			if (HomeMenu_cursors[i].cooldownTimer <= 0)
 				HomeMenu_cursors[i].rumbleTimer = SHORT_RUMBLE;
 		}
@@ -580,11 +616,12 @@ void __HomeMenu_updateWiimotes()
 
 void __HomeMenu_slide(bool reverse)
 {
-	// most sprite movements are relative to 'top' and 'bottom,' so we'll move those and update the rest after.
-	
 	int direction = 1;
 	if (reverse)
 		direction = -1;
+
+	HomeMenu_button_loader_active.a = 0;
+	HomeMenu_button_wiiMenu_active.a = 0;
 		
 	__HomeMenu_draw();
 	
@@ -612,6 +649,8 @@ void __HomeMenu_slide(bool reverse)
 			HomeMenu_button_wiiMenu.a = 0;
 			HomeMenu_button_loader.a = 0;
 			HomeMenu_background.r = HomeMenu_background.g = HomeMenu_background.b = 0xFF;
+			HomeMenu_top_hover.a = 0;
+			HomeMenu_bottom_hover.a = 0;
 		} else {
 			HomeMenu_button_wiiMenu.a = 255;
 			HomeMenu_button_loader.a = 255;
@@ -624,58 +663,166 @@ void __HomeMenu_slide(bool reverse)
 
 void __HomeMenu_animate()
 {
-	// aggregate all hover bools
-	bool topH, bottomH, wiiMenuH, loaderH;
-	topH = bottomH = wiiMenuH = loaderH = false;
+	// aggregate all hotspot states
+	u8 topState, bottomState, wiiMenuState, loaderState;
+	topState = bottomState = wiiMenuState = loaderState = HM_HOTSPOT_INACTIVE;
 	int i;
 	for (i = 0; i < 4; i++) {
-		topH     |= HomeMenu_topHover[i];
-		bottomH  |= HomeMenu_bottomHover[i];
-		wiiMenuH |= HomeMenu_wiiMenuHover[i];
-		loaderH  |= HomeMenu_loaderHover[i];
+		topState     |= HomeMenu_topState[i];
+		bottomState  |= HomeMenu_bottomState[i];
+		wiiMenuState |= HomeMenu_wiiMenuState[i];
+		loaderState  |= HomeMenu_loaderState[i];
 	}
 	
-	if (topH)
-	{
-		if (HomeMenu_top_hover.a != 255)
-			HomeMenu_top_hover.a = MIN(255, HomeMenu_top_hover.a + HomeMenu_fadeRate*__HomeMenu_elapsed);
-	} else {
-		if (HomeMenu_top_hover.a != 0)
-			HomeMenu_top_hover.a = MAX(0, HomeMenu_top_hover.a - HomeMenu_fadeRate*__HomeMenu_elapsed);
-	}
-	
-	if (bottomH)
-	{
-		if (HomeMenu_bottom_hover.a != 255)
+	// potential bug here.  If the user activates a hotspot before hover its animation begins then the activation animation is skipped.
+	// Since this is very unlikely to happen, I'll ignore it.  Otherwise I'd have to use more variables to keep track of animations.
+
+	// top
+	if ((topState & HM_HOTSPOT_ACTIVATED) == HM_HOTSPOT_ACTIVATED) {
+		if (HomeMenu_top_hover.a != 0) {	// use this to keep track if we're fading in or out.  This means fading in.
+			if (HomeMenu_top_active.a != 255)
+				HomeMenu_top_active.a = MIN(255, HomeMenu_top_active.a + HomeMenu_fadeRate*__HomeMenu_elapsed);
+			else
+				HomeMenu_top_hover.a = 0;	// turn off hover layer once active layer is at full opacity.  This triggers the fade out as well.
+		} else
+			if (HomeMenu_top_active.a != 0) {
+				HomeMenu_top_active.a = MAX(0, HomeMenu_top_active.a - HomeMenu_fadeRate*__HomeMenu_elapsed);
+				if (HomeMenu_top_active.a == 0)		// break out of animation cycle
+					topState = HM_HOTSPOT_ACTIVE;
+			}
+	} else
+		if (topState == HM_HOTSPOT_HOVER)
 		{
-			HomeMenu_bottom_hover.a = MIN(255, HomeMenu_bottom_hover.a + HomeMenu_fadeRate*__HomeMenu_elapsed);
-			HomeMenu_wiimote.y = HomeMenu_bottom.y + 12 - HomeMenu_bottom_hover.a*0.1f;
+			if (HomeMenu_top_hover.a != 255)
+				HomeMenu_top_hover.a = MIN(255, HomeMenu_top_hover.a + HomeMenu_fadeRate*__HomeMenu_elapsed);
+		} else {
+			if (HomeMenu_top_hover.a != 0)
+				HomeMenu_top_hover.a = MAX(0, HomeMenu_top_hover.a - HomeMenu_fadeRate*__HomeMenu_elapsed);
 		}
-	} else {
-		if (HomeMenu_bottom_hover.a != 0)
+
+	// bottom
+	if ((bottomState & HM_HOTSPOT_ACTIVATED) == HM_HOTSPOT_ACTIVATED) {
+		if (HomeMenu_bottom_hover.a != 0) {	// use this to keep track if we're fading in or out.  This means fading in.
+			if (HomeMenu_bottom_active.a != 255)
+				HomeMenu_bottom_active.a = MIN(255, HomeMenu_bottom_active.a + HomeMenu_fadeRate*__HomeMenu_elapsed);
+			else
+				HomeMenu_bottom_hover.a = 0;	// turn off hover layer once active layer is at full opacity.  This triggers the fade out as well.
+		} else
+			if (HomeMenu_bottom_active.a != 0) {
+				HomeMenu_bottom_active.a = MAX(0, HomeMenu_bottom_active.a - HomeMenu_fadeRate*__HomeMenu_elapsed);
+				HomeMenu_wiimote.y = HomeMenu_bottom.y + 5 - HomeMenu_bottom_active.a*0.1f;
+				if (HomeMenu_bottom_active.a == 0)		// break out of animation cycle
+					bottomState = HM_HOTSPOT_ACTIVE;
+			}
+	} else
+		if (bottomState == HM_HOTSPOT_HOVER)
 		{
-			HomeMenu_bottom_hover.a = MAX(0, HomeMenu_bottom_hover.a - HomeMenu_fadeRate*__HomeMenu_elapsed);
-			HomeMenu_wiimote.y = HomeMenu_bottom.y + 12 - HomeMenu_bottom_hover.a*0.1f;
+			if (HomeMenu_bottom_hover.a != 255) {
+				HomeMenu_bottom_hover.a = MIN(255, HomeMenu_bottom_hover.a + HomeMenu_fadeRate*__HomeMenu_elapsed);
+				HomeMenu_wiimote.y = HomeMenu_bottom.y + 5 - HomeMenu_bottom_hover.a*0.1f;
+			}
+		} else {
+			if (HomeMenu_bottom_hover.a != 0) {
+				HomeMenu_bottom_hover.a = MAX(0, HomeMenu_bottom_hover.a - HomeMenu_fadeRate*__HomeMenu_elapsed);
+				HomeMenu_wiimote.y = HomeMenu_bottom.y + 5 - HomeMenu_bottom_hover.a*0.1f;
+			}
 		}
+
+	// wiiMenu button
+	if ((wiiMenuState & HM_HOTSPOT_ACTIVATED) == HM_HOTSPOT_ACTIVATED) {
+		// step 4: button returns to normal color
+		if (HomeMenu_button_wiiMenu_active.a != 0 && HomeMenu_button_wiiMenu.s == HomeMenu_hoverZoomLevel) {
+			HomeMenu_button_wiiMenu_active.a = MAX(0, HomeMenu_button_wiiMenu_active.a - 1.5f*HomeMenu_fadeRate*__HomeMenu_elapsed);
+			if (HomeMenu_button_wiiMenu_active.a == 0) 	// break out of animation cycle
+				wiiMenuState = HM_HOTSPOT_ACTIVE;
+		}
+
+		// step 3: button pulls out
+		if (HomeMenu_button_wiiMenu.s < HomeMenu_hoverZoomLevel && HomeMenu_button_wiiMenu_active.a == 255) {
+			HomeMenu_button_wiiMenu.s = MIN(HomeMenu_hoverZoomLevel, HomeMenu_button_wiiMenu.s + HomeMenu_zoomRate*__HomeMenu_elapsed);
+			HomeMenu_button_wiiMenu_active.s = HomeMenu_button_wiiMenu.s;
+		}
+		
+		// step 2: button turns white
+		if (HomeMenu_button_wiiMenu_active.a != 255 && HomeMenu_button_wiiMenu.s == HomeMenu_activeZoomLevel)
+			HomeMenu_button_wiiMenu_active.a = MIN(255, HomeMenu_button_wiiMenu_active.a + 1.5f*HomeMenu_fadeRate*__HomeMenu_elapsed);
+		
+		// step 1: button pushes in
+		if (HomeMenu_button_wiiMenu.s > HomeMenu_activeZoomLevel && HomeMenu_button_wiiMenu_active.a == 0) {
+			HomeMenu_button_wiiMenu.s = MAX(HomeMenu_activeZoomLevel, HomeMenu_button_wiiMenu.s - HomeMenu_zoomRate*__HomeMenu_elapsed);
+			HomeMenu_button_wiiMenu_active.s = HomeMenu_button_wiiMenu.s;
+		}
+	} else
+		if (wiiMenuState == HM_HOTSPOT_HOVER)
+		{
+			if (HomeMenu_button_wiiMenu.s < HomeMenu_hoverZoomLevel) {
+				HomeMenu_button_wiiMenu.s = MIN(HomeMenu_hoverZoomLevel, HomeMenu_button_wiiMenu.s + HomeMenu_zoomRate*__HomeMenu_elapsed);
+				HomeMenu_button_wiiMenu_active.s = HomeMenu_button_wiiMenu.s;
+			}
+		} else {
+			if (HomeMenu_button_wiiMenu.s > 1) {
+				HomeMenu_button_wiiMenu.s = MAX(1, HomeMenu_button_wiiMenu.s - HomeMenu_zoomRate*__HomeMenu_elapsed);
+				HomeMenu_button_wiiMenu_active.s = HomeMenu_button_wiiMenu.s;
+			}
+		}
+
+	// loader button
+	if ((loaderState & HM_HOTSPOT_ACTIVATED) == HM_HOTSPOT_ACTIVATED) {
+		// step 4: button returns to normal color
+		if (HomeMenu_button_loader_active.a != 0 && HomeMenu_button_loader.s == HomeMenu_hoverZoomLevel) {
+			HomeMenu_button_loader_active.a = MAX(0, HomeMenu_button_loader_active.a - 1.5f*HomeMenu_fadeRate*__HomeMenu_elapsed);
+			if (HomeMenu_button_loader_active.a == 0) 	// break out of animation cycle
+				loaderState = HM_HOTSPOT_ACTIVE;
+		}
+
+		// step 3: button pulls out
+		if (HomeMenu_button_loader.s < HomeMenu_hoverZoomLevel && HomeMenu_button_loader_active.a == 255) {
+			HomeMenu_button_loader.s = MIN(HomeMenu_hoverZoomLevel, HomeMenu_button_loader.s + HomeMenu_zoomRate*__HomeMenu_elapsed);
+			HomeMenu_button_loader_active.s = HomeMenu_button_loader.s;
+		}
+		
+		// step 2: button turns white
+		if (HomeMenu_button_loader_active.a != 255 && HomeMenu_button_loader.s == HomeMenu_activeZoomLevel)
+			HomeMenu_button_loader_active.a = MIN(255, HomeMenu_button_loader_active.a + 1.5f*HomeMenu_fadeRate*__HomeMenu_elapsed);
+		
+		// step 1: button pushes in
+		if (HomeMenu_button_loader.s > HomeMenu_activeZoomLevel && HomeMenu_button_loader_active.a == 0) {
+			HomeMenu_button_loader.s = MAX(HomeMenu_activeZoomLevel, HomeMenu_button_loader.s - HomeMenu_zoomRate*__HomeMenu_elapsed);
+			HomeMenu_button_loader_active.s = HomeMenu_button_loader.s;
+		}
+	} else
+		if (loaderState == HM_HOTSPOT_HOVER)
+		{
+			if (HomeMenu_button_loader.s < HomeMenu_hoverZoomLevel) {
+				HomeMenu_button_loader.s = MIN(HomeMenu_hoverZoomLevel, HomeMenu_button_loader.s + HomeMenu_zoomRate*__HomeMenu_elapsed);
+				HomeMenu_button_loader_active.s = HomeMenu_button_loader.s;
+			}
+		} else {
+			if (HomeMenu_button_loader.s > 1) {
+				HomeMenu_button_loader.s = MAX(1, HomeMenu_button_loader.s - HomeMenu_zoomRate*__HomeMenu_elapsed);
+				HomeMenu_button_loader_active.s = HomeMenu_button_loader.s;
+			}
+		}
+	
+	// update hotspot sates if necessary (this is very dirty!  find a better way)
+	for (i = 0; i < 4; i++) {
+		if ((topState &= HM_HOTSPOT_ACTIVE)    == HM_HOTSPOT_ACTIVE)
+			if ((HomeMenu_topState[i]     & HM_HOTSPOT_ACTIVATED) == HM_HOTSPOT_ACTIVATED)
+				HomeMenu_topState[i]     |= HM_HOTSPOT_ACTIVE;
+
+		if ((bottomState & HM_HOTSPOT_ACTIVE)  == HM_HOTSPOT_ACTIVE)
+			if ((HomeMenu_bottomState[i]  & HM_HOTSPOT_ACTIVATED) == HM_HOTSPOT_ACTIVATED)
+				HomeMenu_bottomState[i]  |= HM_HOTSPOT_ACTIVE;
+
+		if ((wiiMenuState & HM_HOTSPOT_ACTIVE) == HM_HOTSPOT_ACTIVE)
+			if ((HomeMenu_wiiMenuState[i] & HM_HOTSPOT_ACTIVATED) == HM_HOTSPOT_ACTIVATED)
+				HomeMenu_wiiMenuState[i] |= HM_HOTSPOT_ACTIVE;
+
+		if ((loaderState & HM_HOTSPOT_ACTIVE)  == HM_HOTSPOT_ACTIVE)
+			if ((HomeMenu_loaderState[i]  & HM_HOTSPOT_ACTIVATED) == HM_HOTSPOT_ACTIVATED)
+				HomeMenu_loaderState[i]  |= HM_HOTSPOT_ACTIVE;
 	}
 	
-	if (wiiMenuH)
-	{
-		if (HomeMenu_button_wiiMenu.s < 1.07f)
-			HomeMenu_button_wiiMenu.s = MIN(1.07f, HomeMenu_button_wiiMenu.s + HomeMenu_zoomRate*__HomeMenu_elapsed);
-	} else {
-		if (HomeMenu_button_wiiMenu.s > 1)
-			HomeMenu_button_wiiMenu.s = MAX(1, HomeMenu_button_wiiMenu.s - HomeMenu_zoomRate*__HomeMenu_elapsed);
-	}
-	
-	if (loaderH)
-	{
-		if (HomeMenu_button_loader.s < 1.07f)
-			HomeMenu_button_loader.s = MIN(1.07f, HomeMenu_button_loader.s + HomeMenu_zoomRate*__HomeMenu_elapsed);
-	} else {
-		if (HomeMenu_button_loader.s > 1)
-			HomeMenu_button_loader.s = MAX(1, HomeMenu_button_loader.s - HomeMenu_zoomRate*__HomeMenu_elapsed);
-	}
 }
 
 
@@ -778,10 +925,13 @@ void __HomeMenu_drawImage(HomeMenu_image *img)
 }
 
 
-void __HomeMenu_playPCM(const void* pcm, s32 pcm_size, s32 left, s32 right)
+void __HomeMenu_playPCM(const void* pcm, s32 pcm_size, s32 left, s32 right, bool stereo)
 {
 	if (__HomeMenu_snd == HM_SND_ASND) {
-		ASND_SetVoice(ASND_GetFirstUnusedVoice(), VOICE_MONO_16BIT, 48000, 0, (void*)pcm, pcm_size, left, right, NULL);
+		if (stereo)
+			ASND_SetVoice(ASND_GetFirstUnusedVoice(), VOICE_STEREO_16BIT, 48000, 0, (void*)pcm, pcm_size, left, right, NULL);
+		else
+			ASND_SetVoice(ASND_GetFirstUnusedVoice(), VOICE_MONO_16BIT, 48000, 0, (void*)pcm, pcm_size, left, right, NULL);
 	}
 }
 
@@ -790,9 +940,11 @@ void __HomeMenu_draw()
 {
 	
 	int i;
-	for (i = 0; i < HomeMenu_IMG_COUNT; i++) {
+	for (i = 0; i < HM_IMG_COUNT; i++) {
 		__HomeMenu_drawImage(HomeMenu_images[i]);
 	}
+	
+	__HomeMenu_drawFader();
 
 	GX_SetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);
 	GX_SetColorUpdate(GX_TRUE);
@@ -803,6 +955,55 @@ void __HomeMenu_draw()
 	VIDEO_WaitVSync();
 	__HomeMenu_fbi ^= 1;
 	GX_InvalidateTexAll();
+}
+
+
+void __HomeMenu_drawFader() {
+	// code borrowed from LWS's quad draw
+	
+	f32 x, y, w, h;
+	x = -40; y = -40;
+	w = HomeMenu_screenWidth + 80; h = HomeMenu_screenHeight + 80;
+
+	// Use all the position data one can get
+	Mtx model;
+	guMtxIdentity(model);
+	guMtxTransApply(model, model, x+w/2, y+h/2, 0.0f);
+	GX_LoadPosMtxImm(model, GX_PNMTX0);
+
+	// Turn off texturing
+	GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
+	GX_SetVtxDesc(GX_VA_TEX0, GX_NONE);
+
+	if (__HomeMenu_gfx == HM_GFX_GRRLIB) {
+		GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
+			GX_Position3f32(-w, -h, 0);
+			GX_Color4u8(0, 0, 0, HomeMenu_fader);
+			GX_Position3f32(w, -h, 0);
+			GX_Color4u8(0, 0, 0, HomeMenu_fader);
+			GX_Position3f32(w, h, 0);
+			GX_Color4u8(0, 0, 0, HomeMenu_fader);
+			GX_Position3f32(-w, h, 0);
+			GX_Color4u8(0, 0, 0, HomeMenu_fader);
+		GX_End();
+	} else if (__HomeMenu_gfx == HM_GFX_LIBWIISPRITE) {
+		GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
+			GX_Position2f32(-w, -h);
+			GX_Color4u8(0, 0, 0, HomeMenu_fader);
+			GX_Position2f32(w, -h);
+			GX_Color4u8(0, 0, 0, HomeMenu_fader);
+			GX_Position2f32(w, h);
+			GX_Color4u8(0, 0, 0, HomeMenu_fader);
+			GX_Position2f32(-w, h);
+			GX_Color4u8(0, 0, 0, HomeMenu_fader);
+		GX_End();
+	} else {
+		// failsafe... not done yet.
+	}
+	
+	// Turn texturing back on
+	GX_SetTevOp(GX_TEVSTAGE0, GX_MODULATE);
+	GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
 }
 
 
@@ -856,7 +1057,7 @@ void __HomeMenu_moveAll(f32 offset)
 	HomeMenu_text_bottom.x = HomeMenu_bottom.x + HomeMenu_screenWidth*0.07f;
 	HomeMenu_text_bottom.y = HomeMenu_bottom.y;
 	HomeMenu_wiimote.x = HomeMenu_screenWidth*0.12f;
-	HomeMenu_wiimote.y = HomeMenu_bottom.y + 5;
+	HomeMenu_wiimote.y = HomeMenu_bottom.y + 5;		// <<<------------ replace 5 with an offset which is also used in animations.
 	HomeMenu_battery_info.x = HomeMenu_screenWidth*0.59f;
 	HomeMenu_battery_info.y = HomeMenu_bottom.y - HomeMenu_bottom.h/2;
 	HomeMenu_battery[0].x = HomeMenu_battery_info.x - 140 * __HomeMenu_xRatio;

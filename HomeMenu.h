@@ -7,17 +7,22 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#define SHORT_RUMBLE		0.047f
-#define RUMBLE_COOLDOWN 	0.30f
-#define MENU_VOLUME			196
+#define SHORT_RUMBLE			0.047f
+#define RUMBLE_COOLDOWN 		0.30f
+#define MENU_VOLUME				196
 
-#define HM_GFX_FAILSAFE		0
-#define HM_GFX_GRRLIB		1
-#define HM_GFX_LIBWIISPRITE	2
+#define HM_GFX_FAILSAFE			0
+#define HM_GFX_GRRLIB			1
+#define HM_GFX_LIBWIISPRITE		2
 
-#define HM_SND_NOSOUND		0
-#define HM_SND_ASND 		1
-#define HM_SND_SDL			2
+#define HM_SND_NOSOUND			0
+#define HM_SND_ASND 			1
+#define HM_SND_SDL				2
+
+#define HM_HOTSPOT_INACTIVE		0	// no cursor interaction
+#define HM_HOTSPOT_HOVER		1	// cursor over hotspot
+#define HM_HOTSPOT_ACTIVATED	2	// cursor just activated hotspot (clicked)
+#define HM_HOTSPOT_ACTIVE		4	// hotspot action is free to begin
 
 typedef struct HomeMenu_image {
 	const void *texture;	// pointer to texture
@@ -73,15 +78,17 @@ void __HomeMenu_updateWiimotes();
 void __HomeMenu_slide(bool reverse);
 void __HomeMenu_animate();
 void __HomeMenu_draw();
+void __HomeMenu_drawFader();
 void __HomeMenu_updateTimer();
 void __HomeMenu_drawImage(HomeMenu_image *img);
-void __HomeMenu_playPCM(const void* pcm, s32 pcm_size, s32 left, s32 right);
+void __HomeMenu_playPCM(const void* pcm, s32 pcm_size, s32 left, s32 right, bool stereo);
 void __HomeMenu_setVisible(bool value);
 void __HomeMenu_moveAll(f32 offset);
 
 // frame buffer stuff:
 void* __HomeMenu_fb[2];		// framebuffers
-u8 __HomeMenu_fbi;			// frame buffer index
+u8 __HomeMenu_fbi;			// frame buffer index (current)
+u8 __HomeMenu_fbi0;			// frame buffer index (before HomeMenu starts drawing)
 
 
 u8  __HomeMenu_gfx;			// underlying graphics library.  Values are 1: GRRLIB;  2: LibWiiSprite;  3:  LibWiiGUI;  0: Failsafe
@@ -126,19 +133,24 @@ HomeMenu_image HomeMenu_p[4];		// the "P" label beside the batter gauge
 HomeMenu_image HomeMenu_button_wiiMenu, HomeMenu_button_wiiMenu_active, HomeMenu_button_loader, HomeMenu_button_loader_active, HomeMenu_button_close;
 HomeMenu_image HomeMenu_pointer[4];
 HomeMenu_image HomeMenu_background;
-#define HomeMenu_IMG_COUNT 28
-HomeMenu_image* HomeMenu_images[HomeMenu_IMG_COUNT];		// conventient array of pointers to all images
+
+#define HM_IMG_COUNT 28
+HomeMenu_image* HomeMenu_images[HM_IMG_COUNT];		// conventient array of pointers to all images
 HomeMenu_cursor p1, p2, p3, p4;
 HomeMenu_cursor HomeMenu_cursors[4];
 
-f32 HomeMenu_fader;		// Foreground fader value.
-const static int HomeMenu_dimAmount = 96;	// amount background is dimmed when menu is open;
+u16 HomeMenu_fader;								// Foreground fader value (0 = transparent, 255 = opaque black)
+
+const u8  HomeMenu_dimAmount		= 96;		// amount background is dimmed when menu is open;
+const f32 HomeMenu_zoomRate			= 1.01f;	// Rate at which buttons zoom (orders/sec)
+const f32 HomeMenu_fadeRate			= 2048;		// Rate at which top and bottom bars fade (256ths/sec)
+const f32 HomeMenu_hoverZoomLevel	= 1.07f;	// Level to which a hovered-upon button zooms
+const f32 HomeMenu_activeZoomLevel	= 1.04f;	// Level to which an activated button zooms
 
 u32 HomeMenu_wm_status[4], HomeMenu_wm_type[4];
 
-bool HomeMenu_topHover[4], HomeMenu_bottomHover[4], HomeMenu_wiiMenuHover[4], HomeMenu_loaderHover[4];
-
-f32 HomeMenu_zoomRate, HomeMenu_fadeRate;	// rate at which top&bottom move, buttons zoom, active layers fade in/out.
+// state values:	0: inactive;	1: hover;	2: activated
+u8 HomeMenu_topState[4], HomeMenu_bottomState[4], HomeMenu_wiiMenuState[4], HomeMenu_loaderState[4];
 
 int HomeMenu_screenWidth, HomeMenu_screenHeight;
 
