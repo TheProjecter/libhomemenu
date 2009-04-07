@@ -371,7 +371,7 @@ bool HomeMenu_Show()
 				}
 				
 				HomeMenu_active = false;
-				//SYS_ResetSystem(SYS_RETURNTOMENU,0,0);
+				SYS_ResetSystem(SYS_RETURNTOMENU,0,0);
 			}
 					
 			if ((HomeMenu_loaderState[i]  & HM_HOTSPOT_ACTIVE) == HM_HOTSPOT_ACTIVE) {
