@@ -4,11 +4,11 @@ Visit http://www.devkitpro.org
 */
 
 //---------------------------------------------------------------------------------
-#ifndef _snd_tick_h_
-#define _snd_tick_h_
+#ifndef _HomeMenu_snd_tick_h_
+#define _HomeMenu_snd_tick_h_
 //---------------------------------------------------------------------------------
-extern const unsigned char snd_tick[];
-extern const int snd_tick_size;
+extern const unsigned char HomeMenu_snd_tick[];
+extern const int HomeMenu_snd_tick_size;
 //---------------------------------------------------------------------------------
-#endif //_snd_tick_h_
+#endif //_HomeMenu_snd_tick_h_
 //---------------------------------------------------------------------------------
